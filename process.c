@@ -38,7 +38,7 @@ void receive_message(struct process*current_process,
 	MPI_Iprobe(MPI_ANY_SOURCE,MPI_ANY_TAG,
 		MPI_COMM_WORLD,&flag,&status);
 
-	received_message->source=NO_SOURCE;
+	received_message->tag=MESSAGE_TAG_NO_OPERATION;
 
 	if(!flag)
 		return;
@@ -66,41 +66,41 @@ void receive_message(struct process*current_process,
 
 }
 
+void no_message_operation(struct process*current_process,struct message*received_message){
+}
+
+void start_test(struct process*current_process,struct message*received_message){
+	current_process->slave_mode=SLAVE_MODE_TEST_NETWORK;
+}
+
+void read_test_message(struct process*current_process,struct message*received_message){
+	#ifdef VERBOSE
+	printf("received MESSAGE_TAG_TEST_MESSAGE from %d\n",
+		received_message->source);
+	#endif /* VERBOSE */
+
+	send_message(current_process,NULL,0,
+		received_message->source,
+		MESSAGE_TAG_TEST_MESSAGE_REPLY);
+
+}
+
+void read_reply(struct process*current_process,struct message*received_message){
+
+	current_process->received_message=true;
+}
+
+void complete_process(struct process*current_process,struct message*received_message){
+	current_process->completed++;
+
+	if(current_process->completed==current_process->size)
+		send_to_all(current_process,MESSAGE_TAG_KILL);
+
+}
+
 void process_message(struct process*current_process,struct message*received_message){
 
-	if(received_message->source==NO_SOURCE)
-		return;
-	
-	switch(received_message->tag){
-		case MESSAGE_TAG_NO_OPERATION:
-			break;
-		case MESSAGE_TAG_BEGIN_TEST:
-			current_process->slave_mode=SLAVE_MODE_TEST_NETWORK;
-			break;
-		case MESSAGE_TAG_TEST_MESSAGE:
-			#ifdef VERBOSE
-			printf("received MESSAGE_TAG_TEST_MESSAGE from %d\n",
-				received_message->source);
-			#endif /* VERBOSE */
-
-			send_message(current_process,NULL,0,received_message->source,
-				MESSAGE_TAG_TEST_MESSAGE_REPLY);
-			break;
-		case MESSAGE_TAG_TEST_MESSAGE_REPLY:
-			current_process->received_message=true;
-			break;
-		case MESSAGE_TAG_COMPLETED_TEST:
-			current_process->completed++;
-
-			if(current_process->completed==current_process->size)
-				send_to_all(current_process,MESSAGE_TAG_KILL);
-
-			break;
-		case MESSAGE_TAG_KILL:
-			kill_self(current_process);
-			break;
-	}
-	
+	current_process->message_tag_interrupts[received_message->tag](current_process,received_message);
 }
 
 void init_process(struct process*current_process,int*argc,char***argv){
@@ -132,6 +132,13 @@ void init_process(struct process*current_process,int*argc,char***argv){
 	current_process->sent_message=false;
 	current_process->completed=0;
 	current_process->messages=100000;
+
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_NO_OPERATION,no_message_operation);
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_BEGIN_TEST,start_test);
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_TEST_MESSAGE,read_test_message);
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_TEST_MESSAGE_REPLY,read_reply);
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_COMPLETED_TEST,complete_process);
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_KILL,kill_self);
 }
 
 bool is_alive(struct process*current_process){
@@ -267,7 +274,7 @@ uint64_t get_microseconds(){
 
 }
 
-void kill_self(struct process*current_process){
+void kill_self(struct process*current_process,struct message*received_message){
 
 	#define FREQUENCIES 1000
 
@@ -315,3 +322,16 @@ void kill_self(struct process*current_process){
 
 	current_process->alive=false;
 }
+
+void set_master_mode_interrupt(struct process*current_process,int interrupt,master_mode_interrupt function){
+	current_process->master_mode_interrupts[interrupt]=function;
+}
+
+void set_slave_mode_interrupt(struct process*current_process,int interrupt,slave_mode_interrupt function){
+	current_process->slave_mode_interrupts[interrupt]=function;
+}
+
+void set_message_tag_interrupt(struct process*current_process,int interrupt,message_tag_interrupt function){
+	current_process->message_tag_interrupts[interrupt]=function;
+}
+
