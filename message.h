@@ -15,34 +15,19 @@
  *  along with this program. Otherwise see <http://www.gnu.org/licenses/>
  */
 
+#ifndef MESSAGE_H
+#define MESSAGE_H
 
-#include <stdlib.h>
-#include <mpi.h>
-#include <stdio.h>
 #include <stdint.h>
 
-#include "message.h"
-#include "process.h"
+struct message{
+	int source;
+	int destination;
+	int count;
+	int tag;
+	uint8_t buffer[4000];
+};
 
-int main(int argc,char**argv){
+#endif /* MESSAGE_H */
 
-	struct message received_message;
-	struct message outbox[1024];
-	struct process current_process;
-
-	init_process(&current_process,&argc,&argv);
-
-	while(is_alive(&current_process)){
-
-		receive_message(&current_process,&received_message);
-
-		process_message(&current_process,&received_message);
-
-		current_process.alive=false;
-	}
-
-	MPI_Finalize();
-
-	return EXIT_SUCCESS;
-}
 
