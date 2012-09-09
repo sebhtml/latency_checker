@@ -52,39 +52,73 @@ typedef void (*slave_mode_interrupt)();
 typedef void (*message_tag_interrupt)();
 
 
-
+/*
+ * This is a MPI process.
+ */
 struct process{
 
-/* fields required for the process */
+
+	/* the number of process */
 	int size;
+
+	/* the identifier of the process */
 	int rank;
+
+	/* is the process alive ? */
 	int alive;
+
+	/* the master mode of the process */
 	int master_mode;
+
+	/* the slave mode of the process */
 	int slave_mode;
 
+	/* the number of completed processes */
 	int completed;
 
+	/* interrupt table for master modes */
 	master_mode_interrupt master_mode_interrupts[32];
+
+	/* interrupt table for slave modes */
 	slave_mode_interrupt slave_mode_interrupts[32];
+
+	/* interrupt table for message tags */
 	message_tag_interrupt message_tag_interrupts[32];
 
-/* stuff for the latency test */
 
+	/* the number of exchanges */
 	int messages;
+
+	/* the current message */
 	int message_number;
+
+	/* has the message been sent ? */
 	bool sent_message;
+
+	/* has the message been received ? */
 	bool received_message;
+
+	/* the starting time for the current message */
 	uint64_t start;
 
+	/* list of latencies */
 	int latencies[100000];
+
+	/* buffer for all exchanges */
 	uint8_t buffer[4000];
 
+	/* message size */
+	int message_size;
 };
 
 void init_process(struct process*current_process,int*argc,char***argv);
+void destroy_process(struct process*current_process);
+
 void set_master_mode_interrupt(struct process*current_process,int interrupt,master_mode_interrupt function);
 void set_slave_mode_interrupt(struct process*current_process,int interrupt,slave_mode_interrupt function);
 void set_message_tag_interrupt(struct process*current_process,int interrupt,message_tag_interrupt function);
+
+void main_loop(struct process*current_process);
 
 void receive_message(struct process*current_process,struct message*received_message);
 void process_message(struct process*current_process,struct message*received_message);
@@ -93,16 +127,19 @@ void process_master_mode(struct process*current_process);
 void process_slave_mode(struct process*current_process);
 
 void send_messages();
-void begin_test(struct process*current_process);
-void send_message(struct process*current_process,uint8_t*buffer,int count,int destination,int tag);
-void main_loop(struct process*current_process);
-void test_network(struct process*current_process);
-uint64_t get_microseconds();
 void send_to_all(struct process*current_process,int tag);
+void send_message(struct process*current_process,uint8_t*buffer,int count,int destination,int tag);
+uint64_t get_microseconds();
 bool is_alive(struct process*current_process);
 
-/* list of message_tag_interrupt functions */
+/* list of master_mode_interrupt functions */
+void no_operation(struct process*current_process);
+void begin_test(struct process*current_process);
 
+/* list of slave_mode_interrupt functions */
+void test_network(struct process*current_process);
+
+/* list of message_tag_interrupt functions */
 void no_message_operation(struct process*current_process,struct message*received_message);
 void start_test(struct process*current_process,struct message*received_message);
 void read_test_message(struct process*current_process,struct message*received_message);

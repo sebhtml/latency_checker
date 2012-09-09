@@ -20,11 +20,23 @@
 
 #include <stdint.h>
 
+/*
+ * when processes communicate, they send a message
+ */
 struct message{
+	/* who sent the message */
 	int source;
+
+	/* who received the message */
 	int destination;
+
+	/* how many elements in the body */
 	int count;
+
+	/* the message type */
 	int tag;
+
+	/* the message body */
 	uint8_t buffer[4000];
 };
 

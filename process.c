@@ -30,6 +30,10 @@
 
 #include "process.h"
 
+/*
+ * Receive a message. First, the message is probed. If
+ * there is a message, we pump it.
+ */
 void receive_message(struct process*current_process,
 	struct message*received_message){
 
@@ -79,8 +83,8 @@ void read_test_message(struct process*current_process,struct message*received_me
 		received_message->source);
 	#endif /* VERBOSE */
 
-	send_message(current_process,NULL,0,
-		received_message->source,
+	send_message(current_process,current_process->buffer,
+		current_process->message_size,received_message->source,
 		MESSAGE_TAG_TEST_MESSAGE_REPLY);
 
 }
@@ -128,10 +132,21 @@ void init_process(struct process*current_process,int*argc,char***argv){
 		current_process->master_mode);
 	#endif /* VERBOSE */
 
+	/* configure latency test */
+
 	current_process->message_number=0;
 	current_process->sent_message=false;
 	current_process->completed=0;
 	current_process->messages=100000;
+	current_process->message_size=4000;
+
+	/* configure the process state machine */
+
+	set_master_mode_interrupt(current_process,MASTER_MODE_NO_OPERATION,no_operation);
+	set_master_mode_interrupt(current_process,MASTER_MODE_BEGIN_TEST,begin_test);
+
+	set_slave_mode_interrupt(current_process,SLAVE_MODE_NO_OPERATION,no_operation);
+	set_slave_mode_interrupt(current_process,SLAVE_MODE_TEST_NETWORK,test_network);
 
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_NO_OPERATION,no_message_operation);
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_BEGIN_TEST,start_test);
@@ -139,6 +154,7 @@ void init_process(struct process*current_process,int*argc,char***argv){
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_TEST_MESSAGE_REPLY,read_reply);
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_COMPLETED_TEST,complete_process);
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_KILL,kill_self);
+
 }
 
 bool is_alive(struct process*current_process){
@@ -149,24 +165,16 @@ void send_messages(){
 }
 
 void process_slave_mode(struct process*current_process){
-	switch(current_process->slave_mode){
-		case SLAVE_MODE_NO_OPERATION:
-			break;
-		case SLAVE_MODE_TEST_NETWORK:
-			test_network(current_process);
-			break;
-	}
+
+	current_process->slave_mode_interrupts[current_process->slave_mode](current_process);
 }
 
 void process_master_mode(struct process*current_process){
 
-	switch(current_process->master_mode){
-		case MASTER_MODE_NO_OPERATION:
-			break;
-		case MASTER_MODE_BEGIN_TEST:
-			begin_test(current_process);
-			break;
-	}
+	current_process->master_mode_interrupts[current_process->master_mode](current_process);
+}
+
+void no_operation(struct process*current_process){
 }
 
 void send_message(struct process*current_process,uint8_t*buffer,int count,int destination,int tag){
@@ -215,8 +223,11 @@ void main_loop(struct process*current_process){
 		send_messages();
 	}
 
-	MPI_Finalize();
+}
 
+void destroy_process(struct process*current_process){
+
+	MPI_Finalize();
 }
 
 void test_network(struct process*current_process){
@@ -234,7 +245,8 @@ void test_network(struct process*current_process){
 
 			current_process->start=get_microseconds();
 
-			send_message(current_process,NULL,0,destination,MESSAGE_TAG_TEST_MESSAGE);
+			send_message(current_process,current_process->buffer,
+				current_process->message_size,destination,MESSAGE_TAG_TEST_MESSAGE);
 
 			current_process->sent_message=true;
 			current_process->received_message=false;

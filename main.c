@@ -15,7 +15,6 @@
  *  along with this program. Otherwise see <http://www.gnu.org/licenses/>
  */
 
-
 #include <stdlib.h>
 #include <mpi.h>
 #include <stdio.h>
@@ -31,6 +30,8 @@ int main(int argc,char**argv){
 	init_process(&current_process,&argc,&argv);
 
 	main_loop(&current_process);
+
+	destroy_process(&current_process);
 
 	return EXIT_SUCCESS;
 }
