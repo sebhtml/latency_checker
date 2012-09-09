@@ -1,2 +1,29 @@
 This benchmark tool measures the round trip latency.
 
+Compile it with 
+
+	make
+
+And use it with
+
+	mpiexec -n 4 -output-filename latency_checker ./latency_checker
+
+
+The number of exchanges can be set with
+
+	-exchanges 100000
+	
+and the message size
+can be set with 
+
+	-message-size 4000
+
+.
+
+Each process will perform 100 000 exchanges. Each message has 4000 bytes.
+A exchange is done when process I sends a message to process J followed by
+process J replying to process I. The round trip latency is the elapsed time
+required by this process.
+
+Written by Sébastien Boisvert
+2012-09-09

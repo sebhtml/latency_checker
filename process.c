@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 #ifdef __linux__
 #include <sys/time.h>
@@ -70,11 +71,31 @@ void receive_message(struct process*current_process,
 
 }
 
+void pick_up_arguments(struct process*current_process,int argc,char**argv){
+	int i;
+	int MATCH;
+
+	MATCH=0;
+
+	for(i=0;i<argc;i++){
+		if(strcmp(argv[i],"-message-size")==MATCH && i+1<argc){
+			current_process->message_size=atoi(argv[i+1]);
+			if(current_process->message_size>MAX_MESSAGE_SIZE)
+				current_process->message_size=MAX_MESSAGE_SIZE;
+		}else if(strcmp(argv[i],"-exchanges")==MATCH && i+1<argc){
+			current_process->exchanges=atoi(argv[i+1]);
+			if(current_process->exchanges>MAX_EXCHANGES)
+				current_process->exchanges=MAX_EXCHANGES;
+		}
+	}
+}
+
 void no_message_operation(struct process*current_process,struct message*received_message){
 }
 
 void start_test(struct process*current_process,struct message*received_message){
 	current_process->slave_mode=SLAVE_MODE_TEST_NETWORK;
+	printf("rank %d is starting the test\n",current_process->rank);
 }
 
 void read_test_message(struct process*current_process,struct message*received_message){
@@ -134,11 +155,13 @@ void init_process(struct process*current_process,int*argc,char***argv){
 
 	/* configure latency test */
 
-	current_process->message_number=0;
+	current_process->exchange_number=0;
 	current_process->sent_message=false;
 	current_process->completed=0;
-	current_process->messages=100000;
+	current_process->exchanges=100000;
 	current_process->message_size=4000;
+
+	pick_up_arguments(current_process,*argc,*argv);
 
 	/* configure the process state machine */
 
@@ -232,7 +255,7 @@ void destroy_process(struct process*current_process){
 
 void test_network(struct process*current_process){
 
-	if(current_process->message_number<current_process->messages){
+	if(current_process->exchange_number<current_process->exchanges){
 
 		if(!current_process->sent_message){
 	
@@ -253,9 +276,9 @@ void test_network(struct process*current_process){
 		}else if(current_process->received_message){
 
 			uint64_t latency=get_microseconds()-current_process->start;
-			current_process->latencies[current_process->message_number]=latency;
+			current_process->latencies[current_process->exchange_number]=latency;
 
-			current_process->message_number++;
+			current_process->exchange_number++;
 			current_process->sent_message=false;
 			current_process->received_message=false;
 
@@ -297,13 +320,16 @@ void kill_self(struct process*current_process,struct message*received_message){
 	for(i=0;i<FREQUENCIES;i++)
 		frequencies[i]=0;
 
-	for(i=0;i<current_process->messages;i++){
+	for(i=0;i<current_process->exchanges;i++){
 		int value=current_process->latencies[i];
 		if(value<FREQUENCIES)
 			frequencies[value]++;
 	}
 	
-	printf("Exchanges: %d\n",current_process->messages);
+	printf("Message size: %d bytes (-message-size %d)\n",current_process->message_size,
+		current_process->message_size);
+
+	printf("Exchanges: %d (-exchanges %d)\n",current_process->exchanges,current_process->exchanges);
 
 	int average=0;
 	int mode=0;

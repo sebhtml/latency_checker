@@ -51,6 +51,9 @@ typedef void (*master_mode_interrupt)();
 typedef void (*slave_mode_interrupt)();
 typedef void (*message_tag_interrupt)();
 
+#define MAX_EXCHANGES 1000000
+#define MAX_MESSAGE_SIZE 4000
+
 
 /*
  * This is a MPI process.
@@ -87,10 +90,10 @@ struct process{
 
 
 	/* the number of exchanges */
-	int messages;
+	int exchanges;
 
 	/* the current message */
-	int message_number;
+	int exchange_number;
 
 	/* has the message been sent ? */
 	bool sent_message;
@@ -102,16 +105,17 @@ struct process{
 	uint64_t start;
 
 	/* list of latencies */
-	int latencies[100000];
+	int latencies[MAX_EXCHANGES];
 
 	/* buffer for all exchanges */
-	uint8_t buffer[4000];
+	uint8_t buffer[MAX_MESSAGE_SIZE];
 
 	/* message size */
 	int message_size;
 };
 
 void init_process(struct process*current_process,int*argc,char***argv);
+void pick_up_arguments(struct process*current_process,int argc,char**argv);
 void destroy_process(struct process*current_process);
 
 void set_master_mode_interrupt(struct process*current_process,int interrupt,master_mode_interrupt function);
