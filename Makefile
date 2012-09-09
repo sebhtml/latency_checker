@@ -1,4 +1,4 @@
-CFLAGS=-O3 -Wall -Wextra -ansi 
+CFLAGS=-O3 -Wall -ansi -DASSERT
 CC=mpicc
 
 
@@ -14,5 +14,8 @@ main.o: main.c
 process.o: process.c
 	$(CC) $(CFLAGS) -c process.c -o process.o
 
-test:
-	mpiexec -n 3 ./latency_checker
+test: latency_checker
+	mpiexec -n 4 -output-filename latency_checker ./latency_checker
+
+clean:
+	rm -rf main.o process.o latency_checker

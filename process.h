@@ -32,13 +32,7 @@
 #define false 0
 #endif
 
-#define NO 0
-#define YES 1
-
-#define MASTER_MODE 0
-#define SLAVE_MODE 1
-#define MESSAGE_TAG 2
-#define ALIVE 3
+#define MASTER 0
 
 #define NO_SOURCE -1
 
@@ -47,25 +41,50 @@
 #define MESSAGE_TAG_COMPLETED_TEST 2
 #define MESSAGE_TAG_KILL 3
 #define MESSAGE_TAG_NO_OPERATION 4
+#define MESSAGE_TAG_BEGIN_TEST 5
 
 #define MASTER_MODE_NO_OPERATION 0
+#define MASTER_MODE_BEGIN_TEST 1
 
 #define SLAVE_MODE_NO_OPERATION 0
+#define SLAVE_MODE_TEST_NETWORK 1
 
 
 
 struct process{
+
+/* fields required for the process */
+	int size;
+	int rank;
 	int alive;
 	int master_mode;
 	int slave_mode;
-	int message_tag;
+
+	int completed;
+
+	int messages;
+	int message_number;
+	bool sent_message;
+	bool received_message;
+	uint64_t start;
+
+	int latencies[100000];
+	uint8_t buffer[4000];
+
 };
 
 void init_process(struct process*current_process,int*argc,char***argv);
-void set_state(struct process*current_process,int state,int value);
 void receive_message(struct process*current_process,struct message*received_message);
 void process_message(struct process*current_process,struct message*received_message);
 bool is_alive(struct process*current_process);
+void send_messages();
+void begin_test(struct process*current_process);
+void send_message(struct process*current_process,uint8_t*buffer,int count,int destination,int tag);
+void main_loop(struct process*current_process);
+void test_network(struct process*current_process);
+uint64_t get_microseconds();
+void send_to_all(struct process*current_process,int tag);
+void kill_self(struct process*current_process);
 
 #endif /* PROCESS_H */
 

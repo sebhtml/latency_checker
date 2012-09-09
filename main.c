@@ -25,23 +25,12 @@
 #include "process.h"
 
 int main(int argc,char**argv){
-
-	struct message received_message;
-	struct message outbox[1024];
+	
 	struct process current_process;
 
 	init_process(&current_process,&argc,&argv);
 
-	while(is_alive(&current_process)){
-
-		receive_message(&current_process,&received_message);
-
-		process_message(&current_process,&received_message);
-
-		current_process.alive=false;
-	}
-
-	MPI_Finalize();
+	main_loop(&current_process);
 
 	return EXIT_SUCCESS;
 }
