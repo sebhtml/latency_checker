@@ -40,9 +40,11 @@ void receive_message(struct process*current_process,
 
 	int flag=0;
 	MPI_Status status;
-	MPI_Iprobe(MPI_ANY_SOURCE,MPI_ANY_TAG,
+	int return_value=MPI_Iprobe(MPI_ANY_SOURCE,MPI_ANY_TAG,
 		MPI_COMM_WORLD,&flag,&status);
 
+	if(return_value!=MPI_SUCCESS)
+		printf("MPI_Iprobe failed with code %d\n",return_value);
 	received_message->tag=MESSAGE_TAG_NO_OPERATION;
 
 	if(!flag)
@@ -65,10 +67,12 @@ void receive_message(struct process*current_process,
 	received_message->count=0;
 	MPI_Get_count(&status,MPI_BYTE,&(received_message->count));
 
-	MPI_Recv(received_message->buffer,received_message->count,
+	return_value=MPI_Recv(received_message->buffer,received_message->count,
 		MPI_BYTE,received_message->source,received_message->tag,
 		MPI_COMM_WORLD,&status);
 
+	if(return_value!=MPI_SUCCESS)
+		printf("MPI_Recv failed with code %d\n",return_value);
 }
 
 void pick_up_arguments(struct process*current_process,int argc,char**argv){
@@ -208,7 +212,11 @@ void send_message(struct process*current_process,uint8_t*buffer,int count,int de
 	#endif
 
 	MPI_Request request;
-	MPI_Isend(buffer,count,MPI_BYTE,destination,tag,MPI_COMM_WORLD,&request);
+	int return_value=MPI_Isend(buffer,count,MPI_BYTE,destination,tag,MPI_COMM_WORLD,&request);
+
+	if(return_value!=MPI_SUCCESS)
+		printf("MPI_Isend failed with code %d\n",return_value);
+
 	MPI_Request_free(&request);
 
 }
