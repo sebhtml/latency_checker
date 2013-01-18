@@ -358,31 +358,33 @@ void get_result(struct process*current_process,struct message*received_message){
 			frequencies[value]++;
 	}
 
-	double average=0;
 	int mode=0;
 	int eligible_entries=0;
 
 	for(i=0;i<FREQUENCIES;i++){
-			int frequency=frequencies[i];
+		int frequency=frequencies[i];
 
 		if(frequency>frequencies[mode])
 			mode=i;
+	}
+
+	double average=0;
+
+	for(i=0;i<FREQUENCIES;i++){
+		int frequency=frequencies[i];
+
+		if(frequency>=10*frequencies[mode])
+			continue;
 
 		average+=i*frequency;
 		eligible_entries+=frequency;
-
 	}
 
 	if(eligible_entries)
 		average/=eligible_entries;
 
-	#ifdef VERBOSE
 	printf("Rank %d -> mode roundtrip latency: %d microseconds, average roundtrip latency: %f microseconds\n",
 		current_process->rank,mode,average);
-	#endif
-
-	printf("Rank %d -> average roundtrip latency: %f microseconds\n",
-		current_process->rank,average);
 
 	#ifdef VERBOSE
 	printf("Round trip latency (microseconds)	frequency\n");
@@ -411,7 +413,7 @@ void get_result_reply(struct process*current_process,struct message*received_mes
 
 	current_process->sum/=current_process->size;
 
-	printf("\nRank %d -> average roundtrip latency: %f microseconds\n",current_process->rank,current_process->sum);
+	printf("\nRank %d -> average of average roundtrip latencies: %f microseconds\n",current_process->rank,current_process->sum);
 
 	send_to_all(current_process,MESSAGE_TAG_KILL);
 }
