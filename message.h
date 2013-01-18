@@ -1,6 +1,6 @@
 /*
  *  latency_checker: a latency benchmark for multi-core multi-node systems
- *  Copyright (C) 2012  Sébastien Boisvert
+ *  Copyright (C) 2012, 2013 Sébastien Boisvert
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,6 +17,8 @@
 
 #ifndef MESSAGE_H
 #define MESSAGE_H
+
+#define MAX_MESSAGE_SIZE 65536
 
 #include <stdint.h>
 
@@ -37,7 +39,7 @@ struct message{
 	int tag;
 
 	/* the message body */
-	uint8_t buffer[4000];
+	uint8_t buffer[MAX_MESSAGE_SIZE];
 };
 
 #endif /* MESSAGE_H */

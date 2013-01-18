@@ -1,6 +1,6 @@
 /*
  *  latency_checker: a latency benchmark for multi-core multi-node systems
- *  Copyright (C) 2012  Sébastien Boisvert
+ *  Copyright (C) 2012, 2013 Sébastien Boisvert
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,8 @@
 #define MESSAGE_TAG_KILL 3
 #define MESSAGE_TAG_NO_OPERATION 4
 #define MESSAGE_TAG_BEGIN_TEST 5
+#define MESSAGE_TAG_GET_RESULT 6
+#define MESSAGE_TAG_GET_RESULT_REPLY 7
 
 #define MASTER_MODE_NO_OPERATION 0
 #define MASTER_MODE_BEGIN_TEST 1
@@ -52,14 +54,13 @@ typedef void (*slave_mode_interrupt)();
 typedef void (*message_tag_interrupt)();
 
 #define MAX_EXCHANGES 1000000
-#define MAX_MESSAGE_SIZE 4000
-
 
 /*
  * This is a MPI process.
  */
 struct process{
 
+	double sum;
 
 	/* the number of process */
 	int size;
@@ -87,7 +88,6 @@ struct process{
 
 	/* interrupt table for message tags */
 	message_tag_interrupt message_tag_interrupts[32];
-
 
 	/* the number of exchanges */
 	int exchanges;
@@ -150,6 +150,7 @@ void read_test_message(struct process*current_process,struct message*received_me
 void complete_process(struct process*current_process,struct message*received_message);
 void read_reply(struct process*current_process,struct message*received_message);
 void kill_self(struct process*current_process,struct message*received_message);
+void get_result(struct process*current_process,struct message*received_message);
+void get_result_reply(struct process*current_process,struct message*received_message);
 
 #endif /* PROCESS_H */
-

@@ -1,6 +1,6 @@
 /*
  *  latency_checker: a latency benchmark for multi-core multi-node systems
- *  Copyright (C) 2012  Sébastien Boisvert
+ *  Copyright (C) 2012, 2013 Sébastien Boisvert
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,6 +15,8 @@
  *  along with this program. Otherwise see <http://www.gnu.org/licenses/>
  */
 
+#include "process.h"
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,8 +30,6 @@
 #ifdef ASSERT
 #include <assert.h>
 #endif /* ASSERT */
-
-#include "process.h"
 
 /*
  * Receive a message. First, the message is probed. If
@@ -99,7 +99,10 @@ void no_message_operation(struct process*current_process,struct message*received
 
 void start_test(struct process*current_process,struct message*received_message){
 	current_process->slave_mode=SLAVE_MODE_TEST_NETWORK;
+	
+	#ifdef VERBOSE
 	printf("rank %d is starting the test\n",current_process->rank);
+	#endif
 }
 
 void read_test_message(struct process*current_process,struct message*received_message){
@@ -122,8 +125,13 @@ void read_reply(struct process*current_process,struct message*received_message){
 void complete_process(struct process*current_process,struct message*received_message){
 	current_process->completed++;
 
-	if(current_process->completed==current_process->size)
-		send_to_all(current_process,MESSAGE_TAG_KILL);
+	if(current_process->completed==current_process->size){
+		current_process->completed=0;
+		send_to_all(current_process,MESSAGE_TAG_GET_RESULT);
+	}
+}
+
+void receive_result(struct process*current_process,struct message*receive_message){
 
 }
 
@@ -142,15 +150,16 @@ void init_process(struct process*current_process,int*argc,char***argv){
 	current_process->master_mode=MASTER_MODE_NO_OPERATION;
 	current_process->slave_mode=SLAVE_MODE_NO_OPERATION;
 
-
 	MPI_Comm_rank(MPI_COMM_WORLD,&(current_process->rank));
 	MPI_Comm_size(MPI_COMM_WORLD,&(current_process->size));
 
 	if(current_process->rank==MASTER)
 		current_process->master_mode=MASTER_MODE_BEGIN_TEST;
 
+	#ifdef VERBOSE
 	printf("Initialized process with rank %d (size is %d)\n",
 		current_process->rank,current_process->size);
+	#endif
 
 	#ifdef VERBOSE
 	printf("master mode of rank %d is %d\n",current_process->rank,
@@ -167,6 +176,20 @@ void init_process(struct process*current_process,int*argc,char***argv){
 
 	pick_up_arguments(current_process,*argc,*argv);
 
+	if(current_process->rank==MASTER){
+		printf("Rank %d latency_checker: a latency benchmark for multi-core multi-node systems\n",
+			current_process->rank);
+		printf("Copyright (C) 2012, 2013 Sébastien Boisvert\n");
+		printf("License: GNU General Public License, version 3\n\n");
+
+		printf("Rank %d -> message size: %d bytes (-message-size %d)",current_process->rank,
+			current_process->message_size,current_process->message_size);
+
+		printf(" exchanges: %d (-exchanges %d)\n\n",current_process->exchanges,current_process->exchanges);
+
+		current_process->sum=0;
+	}
+
 	/* configure the process state machine */
 
 	set_master_mode_interrupt(current_process,MASTER_MODE_NO_OPERATION,no_operation);
@@ -180,8 +203,9 @@ void init_process(struct process*current_process,int*argc,char***argv){
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_TEST_MESSAGE,read_test_message);
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_TEST_MESSAGE_REPLY,read_reply);
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_COMPLETED_TEST,complete_process);
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_GET_RESULT,get_result);
+	set_message_tag_interrupt(current_process,MESSAGE_TAG_GET_RESULT_REPLY,get_result_reply);
 	set_message_tag_interrupt(current_process,MESSAGE_TAG_KILL,kill_self);
-
 }
 
 bool is_alive(struct process*current_process){
@@ -317,7 +341,7 @@ uint64_t get_microseconds(){
 
 }
 
-void kill_self(struct process*current_process,struct message*received_message){
+void get_result(struct process*current_process,struct message*received_message){
 
 	#define FREQUENCIES 1000
 
@@ -333,19 +357,13 @@ void kill_self(struct process*current_process,struct message*received_message){
 		if(value<FREQUENCIES)
 			frequencies[value]++;
 	}
-	
-	printf("Message size: %d bytes (-message-size %d)\n",current_process->message_size,
-		current_process->message_size);
 
-	printf("Exchanges: %d (-exchanges %d)\n",current_process->exchanges,current_process->exchanges);
-
-	int average=0;
+	double average=0;
 	int mode=0;
 	int eligible_entries=0;
 
-
 	for(i=0;i<FREQUENCIES;i++){
-		int frequency=frequencies[i];
+			int frequency=frequencies[i];
 
 		if(frequency>frequencies[mode])
 			mode=i;
@@ -358,14 +376,47 @@ void kill_self(struct process*current_process,struct message*received_message){
 	if(eligible_entries)
 		average/=eligible_entries;
 
-	printf("mode round trip latency: %d microseconds, average round trip latency: %d microseconds\n",
-		mode,average);
+	#ifdef VERBOSE
+	printf("Rank %d -> mode roundtrip latency: %d microseconds, average roundtrip latency: %f microseconds\n",
+		current_process->rank,mode,average);
+	#endif
 
+	printf("Rank %d -> average roundtrip latency: %f microseconds\n",
+		current_process->rank,average);
+
+	#ifdef VERBOSE
 	printf("Round trip latency (microseconds)	frequency\n");
 
 	for(i=0;i<FREQUENCIES;i++)
 		printf("DATA	%d	%d\n",i,frequencies[i]);
+	#endif
 
+	memcpy(current_process->buffer,&average,sizeof(double));
+
+	send_message(current_process,current_process->buffer,
+		current_process->message_size,received_message->source,
+		MESSAGE_TAG_GET_RESULT_REPLY);
+}
+
+void get_result_reply(struct process*current_process,struct message*received_message){
+
+	double average=0;
+	memcpy(&average,received_message->buffer,sizeof(double));
+	current_process->sum+=average;
+
+	current_process->completed++;
+
+	if(current_process->completed!=current_process->size)
+		return;
+
+	current_process->sum/=current_process->size;
+
+	printf("\nRank %d -> average roundtrip latency: %f microseconds\n",current_process->rank,current_process->sum);
+
+	send_to_all(current_process,MESSAGE_TAG_KILL);
+}
+
+void kill_self(struct process*current_process,struct message*received_message){
 	current_process->alive=false;
 }
 
@@ -380,4 +431,4 @@ void set_slave_mode_interrupt(struct process*current_process,int interrupt,slave
 void set_message_tag_interrupt(struct process*current_process,int interrupt,message_tag_interrupt function){
 	current_process->message_tag_interrupts[interrupt]=function;
 }
-
+	
